@@ -1,0 +1,8 @@
+# Etik ve yasal kural: GPower.exe kesinlikle repoya konmaz!
+GPower.exe
+GPowerNT.exe
+*.zip
+__pycache__/
+*.pyc
+.env
+.venv

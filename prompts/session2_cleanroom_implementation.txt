@@ -1,0 +1,6 @@
+Elimizde G*Power 3.1.9.7 uygulamasından REA ile çıkarılmış SPEC.md spesifikasyonu ve LEDGER.md kanıt defteri bulunmaktadır.
+Ghidra veya decompile kodunu kesinlikle görmeden, yalnızca bu spesifikasyondaki kabul kriterlerini ve CLI sözleşmesini karşılayan temiz bir hesaplama motoru (src/engine.py) ve CLI arayüzü (src/cli.py) geliştir.
+Ek olarak:
+1. Model Context Protocol (MCP) üzerinden JSON-RPC stdio sunucusu (src/mcp_server.py) yaz.
+2. Hekimlerin Türkçe klinik sorularını MCP aracılığıyla yanıtlayan Klinik Ajanı (src/clinical_agent.py) geliştir. Ajan hesaplamayı asla kendisi yapmamalı, motordan çağırmalıdır.
+3. Diferansiyel testlerle G*Power oraklına karşı N değerlerinin en az %90 (hedef %100) tam eşleştiğini doğrula.

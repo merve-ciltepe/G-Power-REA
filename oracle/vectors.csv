@@ -1,0 +1,8 @@
+mode,f,alpha,power,k,n_total,n_per_group,actual_power,critical_f,df1,df2,ncp,source,notes
+a-priori,0.25,0.05,0.80,3,159,53,0.8048873,3.0540042,2,156,9.9375000,GPOWER_3.1.9.7,screenshot: gp_apriori_f025_a005_p080_k3.png
+a-priori,0.25,0.05,0.95,3,252,84,0.9514888,3.0320649,2,249,15.7500000,GPOWER_3.1.9.7,screenshot: gp_apriori_f025_a005_p095_k3.png
+a-priori,0.10,0.05,0.80,3,969,323,0.8011010,3.0050418,2,966,9.6900000,GPOWER_3.1.9.7,screenshot: gp_apriori_f010_a005_p080_k3.png
+a-priori,0.40,0.05,0.80,3,66,22,0.8180744,3.1428085,2,63,10.5600000,GPOWER_3.1.9.7,screenshot: gp_apriori_f040_a005_p080_k3.png
+a-priori,0.25,0.05,0.80,2,128,64,0.8014596,3.9163246,1,126,8.0000000,GPOWER_3.1.9.7,screenshot: gp_apriori_f025_a005_p080_k2.png
+a-priori,0.25,0.05,0.80,4,180,45,0.8039869,2.6559389,3,176,11.2500000,GPOWER_3.1.9.7,screenshot: gp_apriori_f025_a005_p080_k4.png
+post-hoc,0.25,0.05,,3,159,53,0.8048873,3.0540042,2,156,9.9375000,GPOWER_3.1.9.7,screenshot: gp_posthoc_f025_a005_n159_k3.png

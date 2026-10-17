@@ -1,0 +1,8 @@
+G*Power 3.1.9.7 Windows x86 binary'sini (GPowerNT.exe) REA (Reverse Engineer Anything) ve statik analiz yöntemleriyle incele.
+Konumuz: ANOVA: Fixed effects, omnibus, one-way (K3).
+Hedef:
+1. İkili dosyadaki F dağılımı, FDist-Cdf, FDist-Quantile, ANOVA omnibus stringlerini ve referanslarını tespit et.
+2. Grup sayısı alt sınırı (k >= 2), örneklem kısıtı (N > k + covariates) ve F test formüllerinin uygulandığı fonksiyonları ve ofsetleri bul.
+3. Kılavuzda yazmayan davranışları (arama durma koşulu, yuvarlama, eşit grup büyüklüğü varsayımı) belirle.
+4. Çıktı olarak SPEC.md (kabul kriterleri) ve LEDGER.md ([REA], [DOK], [AJAN] etiketli kanıt defteri) üret.
+Decompile çıktısı koda konulamaz, temiz oda prensibine uyulmalıdır.
