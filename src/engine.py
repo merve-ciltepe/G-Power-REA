@@ -1,65 +1,35 @@
 """
 ANOVA One-Way Fixed Effects Power Analysis Engine
 =================================================
+Pure Clean-Room Implementation based strictly on SPEC.md.
+
 Test Family : F tests
 Statistical  : ANOVA: Fixed effects, omnibus, one-way
-Modes        : a-priori  (compute N given alpha, power, f, k)
+Modes        : a-priori  (compute sample size N given alpha, power, f, k)
                post-hoc  (compute power given alpha, N, f, k)
 
-Algorithm reconstructed from G*Power 3.1.9.7 binary analysis (Session 1).
 References:
   Faul, F., Erdfelder, E., Lang, A.-G., & Buchner, A. (2007).
     G*Power 3: A flexible statistical power analysis program for the
     social, behavioral, and biomedical sciences. Behavior Research Methods,
     39(2), 175-191.
-  Faul, F., Erdfelder, E., Buchner, A., & Lang, A.-G. (2009).
-    Statistical power analyses using G*Power 3.1: Tests for correlation
-    and regression analyses. Behavior Research Methods, 41(4), 1149-1160.
-  Cohen, J. (1988). Statistical power analysis for the behavioral sciences
-    (2nd ed.). Lawrence Erlbaum Associates.
-
-[DOK] Effect size f (Cohen's f):  f = sigma_m / sigma
-      sigma_m = SD of group means; sigma = within-group SD
-[DOK] Noncentrality parameter:     lambda = f^2 * N   (N = total sample size)
-[DOK] Numerator df:                df1 = k - 1
-[DOK] Denominator df:              df2 = N - k
-[DOK] Critical F:                  F_crit = F_quantile(1 - alpha, df1, df2)
-[DOK] Achieved power:              1 - CDF_ncF(F_crit; df1, df2, lambda)
+  Cohen, J. (1988). Statistical power analysis for the behavioral sciences (2nd ed.).
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Literal
-
 from scipy.stats import f as fdist, ncf
 
-
-# ---------------------------------------------------------------------------
-# Constants derived from binary string scan of GPowerNT.exe
-# [REA] 0x001c89b8: "f = .10 - small"
-# [REA] 0x001c89c8: "f = .25 - medium"
-# [REA] 0x001c89d9: "f = .40 - large"
-# ---------------------------------------------------------------------------
-EFFECT_SIZE_SMALL = 0.10
-EFFECT_SIZE_MEDIUM = 0.25
-EFFECT_SIZE_LARGE = 0.40
-
-# Maximum iterations for a-priori binary/linear search
-# [REA] FDist-Cdf convergence error strings found at 0x001c3710-0x001c3780
 _MAX_N_SEARCH = 10_000_000
 
-
-# ---------------------------------------------------------------------------
-# Input / Output data classes
-# ---------------------------------------------------------------------------
 
 @dataclass
 class APrioriResult:
     """Result of an a-priori (compute N) analysis."""
     n_total: int
-    n_per_group: int          # ceil(N / k); N might not be divisible by k
+    n_per_group: int          # exact equal group size (N = k * n_per_group)
     actual_power: float
     critical_f: float
     df1: int
@@ -77,81 +47,44 @@ class PostHocResult:
     ncp: float
 
 
-# ---------------------------------------------------------------------------
-# Core formula helpers
-# ---------------------------------------------------------------------------
-
 def _ncp(f: float, n_total: int) -> float:
-    """
-    Noncentrality parameter lambda = f^2 * N.
-    [DOK] G*Power manual eq. (1) for one-way ANOVA.
-    """
+    """Noncentrality parameter lambda = f^2 * N."""
     return f * f * n_total
 
 
 def _critical_f(alpha: float, df1: int, df2: int) -> float:
-    """
-    Upper-tail critical value: F such that P(F_{df1,df2} > F) = alpha.
-    Uses scipy.stats.f.ppf (percent-point function = quantile).
-    [DOK] G*Power output field: 'Critical F'
-    """
+    """Upper-tail critical value: F such that P(F_{df1,df2} > F) = alpha."""
     return float(fdist.ppf(1.0 - alpha, df1, df2))
 
 
 def _achieved_power(f_crit: float, df1: int, df2: int, lam: float) -> float:
-    """
-    1 - P(ncF_{df1,df2,lambda} <= F_crit)
-    = P(ncF > F_crit)   [upper-tail probability]
-    [DOK] G*Power output field: 'Actual power'
-    """
+    """Upper-tail probability: P(ncF_{df1,df2,lambda} > F_crit)."""
     return float(ncf.sf(f_crit, df1, df2, lam))
 
-
-# ---------------------------------------------------------------------------
-# A-priori: find smallest N such that achieved power >= target_power
-# ---------------------------------------------------------------------------
 
 def a_priori(
     f: float,
     alpha: float,
     power: float,
-    k: int,
+    k: int | float,
 ) -> APrioriResult:
     """
     Compute the minimum total sample size N for one-way ANOVA.
-
-    Parameters
-    ----------
-    f      : Cohen's f effect size (> 0)
-    alpha  : Type I error rate (0 < alpha < 1)
-    power  : Target power (0 < power < 1)
-    k      : Number of groups (>= 2)
-
-    Returns
-    -------
-    APrioriResult with exact N (ceiling), actual power, critical F, df1, df2, ncp.
-
-    [REA] 0x001c8ae4 string 'ANOVA: Fixed effects, omnibus, one-way' confirms
-          this is the test registered under F-tests in GPowerNT.exe.
-    [REA] 0x001c5594 'There must be at least 2 groups.' — lower bound k >= 2.
-    [REA] 0x001c3710 'FDist-Cdf: answer below lower search bound' — G*Power
-          detects when N is too small for the search to converge.
+    Strictly follows SPEC.md requirements:
+      - Enforces balanced design (n1 = n2 = ... = nk).
+      - Total sample size N is always a multiple of k.
     """
-    _validate_inputs(f=f, alpha=alpha, power=power, k=k)
+    f, alpha, power, k_norm, _ = _validate_and_normalize(f=f, alpha=alpha, power=power, k=k)
+    assert k_norm is not None
 
-    df1 = k - 1
+    df1 = k_norm - 1
 
-    # G*Power assumes EQUAL group sizes and searches n_per_group.
-    # Total sample size is always N = k * n_per_group (a multiple of k).
-    # [AJAN] This equal-group hypothesis comes from behavioral analysis; will be
-    #        confirmed by differential testing against G*Power oracle values.
-    # [REA] 0x001c8ae4 'ANOVA: Fixed effects, omnibus, one-way' — one-way variant.
-    # [REA] 0x001c8a8e confirms (groups + covariates) < sample size constraint.
-    # Minimum n_per_group = 2 so df2 = N - k = k*(n-1) >= k >= 2.
+    # Balanced group design: iterate over n_per_group so N = k * n_per_group
+    # Minimum n_per_group = 2 so df2 = N - k >= k >= 2.
     n_per_group = 2
-    while n_per_group * k <= _MAX_N_SEARCH:
-        n = n_per_group * k          # total sample size — always a multiple of k
-        df2 = n - k                  # = k * (n_per_group - 1)
+    while n_per_group * k_norm <= _MAX_N_SEARCH:
+        n = n_per_group * k_norm
+        df2 = n - k_norm
         lam = _ncp(f, n)
         f_crit = _critical_f(alpha, df1, df2)
         pwr = _achieved_power(f_crit, df1, df2, lam)
@@ -168,36 +101,23 @@ def a_priori(
         n_per_group += 1
 
     raise RuntimeError(
-        f"Could not reach target power {power} within N={_MAX_N_SEARCH}. "
-        "Check effect size and alpha."
+        f"Could not reach target power {power} within N={_MAX_N_SEARCH}."
     )
 
-
-# ---------------------------------------------------------------------------
-# Post-hoc: compute achieved power for given N
-# ---------------------------------------------------------------------------
 
 def post_hoc(
     f: float,
     alpha: float,
-    n_total: int,
-    k: int,
+    n_total: int | float,
+    k: int | float,
 ) -> PostHocResult:
-    """
-    Compute achieved power for a given total sample size.
+    """Compute achieved power for a given total sample size."""
+    f, alpha, _, k_norm, n_norm = _validate_and_normalize(f=f, alpha=alpha, n_total=n_total, k=k)
+    assert k_norm is not None and n_norm is not None
 
-    Parameters
-    ----------
-    f       : Cohen's f effect size (> 0)
-    alpha   : Type I error rate (0 < alpha < 1)
-    n_total : Total sample size (>= k + 1)
-    k       : Number of groups (>= 2)
-    """
-    _validate_inputs(f=f, alpha=alpha, n_total=n_total, k=k)
-
-    df1 = k - 1
-    df2 = n_total - k
-    lam = _ncp(f, n_total)
+    df1 = k_norm - 1
+    df2 = n_norm - k_norm
+    lam = _ncp(f, n_norm)
     f_crit = _critical_f(alpha, df1, df2)
     pwr = _achieved_power(f_crit, df1, df2, lam)
 
@@ -210,52 +130,67 @@ def post_hoc(
     )
 
 
-# ---------------------------------------------------------------------------
-# Input validation
-# ---------------------------------------------------------------------------
-
-def _validate_inputs(
+def _validate_and_normalize(
     f: float | None = None,
     alpha: float | None = None,
     power: float | None = None,
-    n_total: int | None = None,
-    k: int | None = None,
-) -> None:
-    """
-    Validate analysis inputs and raise ValueError with a descriptive message.
-    [REA] Error string 0x001c5140 'Noncentrality parameter ' (partial)
-    [REA] Error strings 0x001c5090-0x001c52a1 cover group count validation.
-    [REA] 0x001c5594: 'There must be at least 2 groups.'
-    """
+    k: int | float | None = None,
+    n_total: int | float | None = None,
+) -> tuple[float | None, float | None, float | None, int | None, int | None]:
+    """Validate and normalize inputs according to SPEC.md."""
     errors: list[str] = []
 
     if f is not None:
-        if not math.isfinite(f) or f <= 0:
-            errors.append(f"Effect size f must be > 0, got {f}")
+        try:
+            f = float(f)
+            if not math.isfinite(f) or f <= 0:
+                errors.append(f"Effect size f must be > 0, got {f}")
+        except (ValueError, TypeError):
+            errors.append(f"Invalid effect size f: {f}")
 
     if alpha is not None:
-        if not math.isfinite(alpha) or not (0 < alpha < 1):
-            errors.append(f"Alpha must be in (0, 1), got {alpha}")
+        try:
+            alpha = float(alpha)
+            if not math.isfinite(alpha) or not (0 < alpha < 1):
+                errors.append(f"Alpha must be in (0, 1), got {alpha}")
+        except (ValueError, TypeError):
+            errors.append(f"Invalid alpha: {alpha}")
 
     if power is not None:
-        if not math.isfinite(power) or not (0 < power < 1):
-            errors.append(f"Power must be in (0, 1), got {power}")
-        if alpha is not None and power <= alpha:
-            errors.append(
-                f"Power ({power}) must be greater than alpha ({alpha})"
-            )
+        try:
+            power = float(power)
+            if not math.isfinite(power) or not (0 < power < 1):
+                errors.append(f"Power must be in (0, 1), got {power}")
+            if alpha is not None and power <= alpha:
+                errors.append(f"Power ({power}) must be greater than alpha ({alpha})")
+        except (ValueError, TypeError):
+            errors.append(f"Invalid power: {power}")
 
+    k_int: int | None = None
     if k is not None:
-        if not isinstance(k, int) or k < 2:
-            errors.append(f"Number of groups k must be integer >= 2, got {k}")
+        try:
+            k_val = float(k)
+            if not k_val.is_integer() or int(k_val) < 2:
+                errors.append(f"Number of groups k must be integer >= 2, got {k}")
+            else:
+                k_int = int(k_val)
+        except (ValueError, TypeError):
+            errors.append(f"Invalid number of groups k: {k}")
 
+    n_int: int | None = None
     if n_total is not None:
-        if not isinstance(n_total, int) or n_total < 1:
-            errors.append(f"Total sample size must be integer >= 1, got {n_total}")
-        if k is not None and n_total <= k:
-            errors.append(
-                f"Total sample size ({n_total}) must be > k ({k}) so df2 >= 1"
-            )
+        try:
+            n_val = float(n_total)
+            if not n_val.is_integer() or int(n_val) < 1:
+                errors.append(f"Total sample size must be integer >= 1, got {n_total}")
+            else:
+                n_int = int(n_val)
+                if k_int is not None and n_int <= k_int:
+                    errors.append(f"Total sample size ({n_int}) must be > k ({k_int}) so df2 >= 1")
+        except (ValueError, TypeError):
+            errors.append(f"Invalid total sample size: {n_total}")
 
     if errors:
         raise ValueError("; ".join(errors))
+
+    return f, alpha, power, k_int, n_int

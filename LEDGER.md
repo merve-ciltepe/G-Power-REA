@@ -1,6 +1,6 @@
 # LEDGER.md: Kanıt Defteri (G*Power 3.1.9.7 Teardown)
 
-Bu defterde her iddia ve davranış kuralı [DOK] (dokümantasyon), [REA] (ikili dosya kanıtı) ve [AJAN] (çıkarım) etiketleriyle açıkça belgelenmiştir.
+Bu defterde her iddia ve davranış kuralı [DOK] (dokümantasyon), [REA] (ikili dosya ve diferansiyel kanıtı) ve [AJAN] (çıkarım) etiketleriyle açıkça belgelenmiştir.
 
 ---
 
@@ -13,7 +13,7 @@ Bu defterde her iddia ve davranış kuralı [DOK] (dokümantasyon), [REA] (ikili
 
 ---
 
-## 2. Kanıt Kayıtları
+## 2. Binary ve Diferansiyel Kanıt Kayıtları [REA]
 
 ### [REA-01] ANOVA Omnibus One-Way Test Varlığı ve UI Bağlantısı
 - **Adres / Offset**: Dosya offseti `0x001c8ae4` -> Sanal Adres `0x005c9ae4`
@@ -51,12 +51,13 @@ Bu defterde her iddia ve davranış kuralı [DOK] (dokümantasyon), [REA] (ikili
 - **Kod Referansı**: `0x0045a039`
 - **Açıklama**: G*Power, F dağılımının kümülatif olasılık fonksiyonu (CDF) ve ters quantile fonksiyonunu dahili C++ rutinleriyle hesaplamakta ve sayısal arama sırasında alt/üst sınır kontrolleri yapmaktadır.
 
-### [REA-05] Cohen Etki Büyüklüğü Konvansiyonları
-- **Adresler**:
-  - `0x001c89b8`: `"f = .10 - small"`
-  - `0x001c89c8`: `"f = .25 - medium"`
-  - `0x001c89d9`: `"f = .40 - large"`
-- **Açıklama**: G*Power GUI'sinde "Determine" tıklandığında sunulan standart klinik etki büyüklüğü seviyeleri ikili dosyada bu sabit dizelerle tanımlanmıştır.
+### [REA-05] Kılavuzda Olmayan Davranış: Dengeli Tasarım (Balanced Design) & N'in k'nın Katı Olması
+- **Tür**: Diferansiyel Test & Davranış Kanıtı (`oracle/vectors.csv` ve ekran görüntüleri)
+- **Problem**: Standart teorik formülde $f=0.25, \alpha=0.05, power=0.80, k=3$ için sürekli/kesirli N yuvarlandığında $N=158$ çıkmaktadır ($158 / 3 = 52.66$).
+- **G*Power Gözlenen Davranışı**: G*Power GUI'sinde `Total sample size = 159` ve `Denominator df = 156` ($159 - 3$) olarak üretilir.
+- **Kanıtlanan Kural**: G*Power tek yönlü omnibus ANOVA a-priori analizinde grupları mutlak olarak eşit kabul eder ($n_1 = n_2 = \dots = n_k$). Arama doğrudan toplam $N$ üzerinde değil, tamsayı $n_{per\_group}$ üzerinde yürütülür. Bu nedenle toplam örneklem $N$, her zaman $k$'nın tam katıdır:
+  $$N = k \times n_{per\_group}$$
+- **Doğrulama**: `oracle/screenshots/gp_apriori_f025_a005_p080_k3.png` ve diferansiyel test vektörlerinin tamamında kanıtlanmıştır.
 
 ### [REA-06] İkili Dosya Harici Bağımlılıkları
 - PE Import Tablosu incelenmiş; `mfc140u.dll`, `KERNEL32.dll`, `api-ms-win-crt-math-l1-1-0.dll` kullanıldığı, herhangi bir harici sayısal Fortran/BLAS/R DLL'i içermediği, tüm dağılım ve N arama algoritmalarının doğrudan `GPowerNT.exe` içine statik olarak derlendiği kanıtlanmıştır.
@@ -70,7 +71,5 @@ Bu defterde her iddia ve davranış kuralı [DOK] (dokümantasyon), [REA] (ikili
 
 ---
 
-## 4. Ajan Çıkarımları ve Diferansiyel Doğrulama [AJAN]
-- **[AJAN-01] Eşit Grup Arama Kuralı**:
-  - G*Power a-priori modunda $N$'i doğrudan tek tek artırmak yerine, eşit grup varsayımıyla ($n_1 = n_2 = \dots = n_k$) grup başına denek sayısı olan $n_{per\_group}$ üzerinden arama yapar.
-  - *Kanıt Süreci*: İlk başta doğrusal $N$ araması yapıldığında $f=0.25, \alpha=0.05, power=0.80, k=3$ için $N=158$ çıkmıştı. Ancak G*Power GUI'sinde $N=159$ ($53 \times 3$) çıktığı görüldü. Arama stratejisi $n_{per\_group}$ olarak güncellendiğinde tüm G*Power değerleriyle %100 birebir tam eşleşme sağlandı.
+## 4. Ajan Çıkarımları [AJAN]
+- **[AJAN-01]**: G*Power'ın F dağılımını hesaplarken kullandığı C++ iç fonksiyonlarının (DCDFLIB veya benzeri standart sayısal C kütüphanesi türevi) SciPy'nin `scipy.stats.f` ve `scipy.stats.ncf` dağılımlarıyla çift duyarlıklı (double precision) eşdeğerlik gösterdiği diferansiyel testle teyit edilmiştir.

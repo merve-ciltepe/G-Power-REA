@@ -2,15 +2,7 @@
 """
 gpower-clone CLI — ANOVA: Fixed effects, omnibus, one-way (K3)
 ==============================================================
-CLI contract as defined in the assignment (CONTRACT.md).
-
-Usage:
-  gpower-clone --test anova-oneway --mode a-priori  --f 0.25 --alpha 0.05 --power 0.80 --k 3
-  gpower-clone --test anova-oneway --mode post-hoc  --f 0.25 --alpha 0.05 --n-total 159 --k 3
-
-Output: single-line JSON to stdout.
-  Success: {"n_total":<int>,"n_per_group":<int>,"actual_power":<float>,"critical_f":<float>,"df1":<int>,"df2":<int>,"ncp":<float>}
-  Error  : {"error":"<description>"}  (exit code 1)
+CLI contract as defined in CONTRACT.md.
 """
 
 from __future__ import annotations
@@ -19,16 +11,14 @@ import argparse
 import json
 import sys
 
-from engine import a_priori, post_hoc, _validate_inputs
+from engine import a_priori, post_hoc
 
 
 def _round4(v: float) -> float:
-    """Round to 4 decimal places for output (G*Power shows 4 decimals)."""
     return round(v, 4)
 
 
 def _round7(v: float) -> float:
-    """Round to 7 decimal places for ncp / actual_power."""
     return round(v, 7)
 
 
@@ -51,16 +41,14 @@ def main() -> None:
     parser.add_argument("--f", type=float, dest="effect_f", help="Cohen's f effect size")
     parser.add_argument("--alpha", type=float, help="Type I error rate")
     parser.add_argument("--power", type=float, help="Target power (a-priori only)")
-    parser.add_argument("--k", type=int, help="Number of groups")
-    parser.add_argument("--n-total", type=int, dest="n_total", help="Total sample size (post-hoc only)")
+    parser.add_argument("--k", type=float, help="Number of groups")
+    parser.add_argument("--n-total", type=float, dest="n_total", help="Total sample size (post-hoc only)")
 
     args = parser.parse_args()
 
-    # Validate test identifier
     if args.test != "anova-oneway":
         _error(f"Unsupported test: '{args.test}'. This CLI supports: anova-oneway")
 
-    # Common required parameters
     if args.effect_f is None:
         _error("--f (effect size) is required")
     if args.alpha is None:
