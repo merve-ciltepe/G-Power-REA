@@ -172,7 +172,7 @@ REA/
 ---
 
 ## 📽️ 60 Saniyelik Demo Videosu
-- **Demo Video Bağlantısı**: [YouTube / Drive Demo Linki Buraya Eklenecek]
+- **Demo Video Bağlantısı**: [YouTube'da İzle (G*Power Clone 60s CLI Demo)](https://youtu.be/qaTOJTWTVVg)
 
 ---
 
